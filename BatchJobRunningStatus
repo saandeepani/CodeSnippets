@@ -1,0 +1,44 @@
+@Override
+    public void run() {
+        try {
+            boolean jobRunning = false;
+            Set<JobExecution> runningExecutions = jobExplorer.findRunningJobExecutions("policyJob");
+            // LOG.info("Currently Running Jobs...." +
+            // runningExecutions.size());
+            if (!runningExecutions.isEmpty()) {
+                for (JobExecution execution : runningExecutions) {
+                    if (execution.getJobParameters().getParameters().containsKey("JVM_NODE")) {
+                        String value = (String) execution.getJobParameters().getParameters().get("JVM_NODE")
+                                .getValue();
+                        if (value.trim().equalsIgnoreCase(env.getProperty("JvmNodeName").trim())) {
+                            jobRunning = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!jobRunning) {
+
+                // check DB2 database to see if any records found to
+                // process...then only initiate job
+            	List<String> status= policyDao.getPolicyRecordsCountReadyStatus(8);
+                if(null != status && !status.isEmpty()){
+             //   if (policyDao.getPolicyRecordsCountReadyStatus() > 0) {
+
+                    String dateParam = new Date().toString();
+                    JobParameters jobParameters = new JobParametersBuilder().addString("date", dateParam)
+                            .addString("JVM_NODE", env.getProperty("JvmNodeName")).toJobParameters();
+
+                    logger.info("Date in job task  " + dateParam);
+                    logger.info("JVM_NODE - " + env.getProperty("JvmNodeName"));
+                    JobExecution execution = jobLauncher.run(job, jobParameters);
+                    logger.info("Exit Status : " + execution.getStatus());
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Exception Occured while starting Spring batch job :", e);
+            logger.error(String.format("Error ocurred and error message is [%s]", e.getMessage()));
+        }
+
+    }
+}
